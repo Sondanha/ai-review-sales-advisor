@@ -1,0 +1,88 @@
+```gitignore
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+.site-packages/
+
+# Byte-compiled / caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.pyre/
+.pytype/
+
+# === Environments ===
+.venv/
+venv/
+.env
+.env.*
+*.env
+
+# === IDE / OS ===
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# === Logs / Outputs ===
+logs/
+*.log
+*.tmp
+tmp/
+.cache/
+coverage.xml
+htmlcov/
+coverage/
+.prof
+*.prof
+
+# === Data / Artifacts ===
+data/
+datasets/
+uploads/
+downloads/
+storage/
+secrets/
+*.sqlite
+*.sqlite3
+*.db
+*.parquet
+*.feather
+*.csv~
+*.bak
+
+# === Project specific ===
+# Streamlit
+.streamlit/secrets.toml
+
+# Reports / exports
+reports/*.pdf
+reports/*.csv
+exports/
+out/
+weasyprint-cache/
+
+# ETL temp
+etl/.cache/
+etl/tmp/
+
+# Alembic (keep versions, ignore build artifacts)
+db/migrations/*/__pycache__/
+db/migrations/versions/__pycache__/
+
+# Node (if ever used by UI)
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+```

@@ -1,0 +1,34 @@
+# Web / Orchestration
+fastapi==0.115.2
+uvicorn[standard]==0.30.6
+langgraph==0.2.39
+langchain==0.3.7
+langchain-community==0.3.7
+
+# LLM (Gemini)
+google-generativeai==0.8.3
+langchain-google-genai==2.0.5
+
+# UI
+streamlit==1.39.0
+
+# Database / ORM / Migration
+SQLAlchemy==2.0.35
+psycopg[binary]==3.2.3
+alembic==1.13.3
+
+# Data processing / ML
+pandas==2.2.3
+numpy==1.26.4
+scikit-learn==1.5.2
+
+# Scheduler / Utils
+APScheduler==3.10.4
+httpx==0.27.2
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+loguru==0.7.2
+
+# Report export
+weasyprint==62.3
