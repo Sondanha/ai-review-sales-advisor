@@ -24,7 +24,6 @@ build/
 .venv/
 venv/
 .env
-.env.*
 *.env
 
 # === IDE / OS ===
@@ -58,8 +57,9 @@ secrets/
 *.db
 *.parquet
 *.feather
-*.csv~
+*.csv
 *.bak
+seed/
 
 # === Project specific ===
 # Streamlit

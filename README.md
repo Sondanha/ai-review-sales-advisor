@@ -1,231 +1,197 @@
 # AI Review & Sales Advisor
 
-요식업 사장님을 위한 **데이터 기반 마케팅 도우미**.
-리뷰(배민·요기요·쿠팡이츠·네이버) + 카드사 월별 데이터(매출/고객/순위)를 통합 분석하여 **챗봇 컨설팅**과 **보고서 자동 생성**을 제공.
+신한카드 데이터 기반 카페 매출·리뷰 인사이트.
+Streamlit 단일 앱 + Supabase Postgres + Gemini 2.5 Flash.
 
-<br>
+---
 
-## 핵심 기능
-
-- **챗봇**: LangGraph + Gemini 2.5 Flash. 대화 컨텍스트 유지. DB 실시간 조회.
-- **리뷰 리스너**: 일일 리뷰 수집·감정점수(0–100)·키워드/아스펙트 트렌드·액션 제안.
-- **월별 인사이트**: 동종업계 상위군 대비 격차 분석. 고객층 변화. 실행전략 Top-N.
-- **보고서/PDF**: 보고서 JSON 스냅샷 저장. PDF/CSV 내보내기.
-
-<br>
-
-## 아키텍처
+## 1) 시스템 아키텍처
 
 ```mermaid
 flowchart TD
-  U[Streamlit UI] --> A[FastAPI + LangGraph]
-  A -->|SQL| DB[(PostgreSQL)]
-  A --> LLM[Gemini 2.5 Flash]
-  subgraph ETL
-    C1[Review Collector] --> DB
-    C2[Card CSV Loader] --> DB
+  U[UserBrowser] --> W[StreamlitApp]
+  W -->|SQLAlchemy+psycopg2| DB[(SupabasePostgres)]
+  W --> LLM[Gemini2.5Flash]
+  subgraph Data_Load[CSVImport]
+    CSV1[MerchantOverview] --> ST[(Staging)]
+    CSV2[MonthlyUsage] --> ST
+    CSV3[MonthlyCustomers] --> ST
   end
-  A --> REP[Reporter/PDF Export]
+  ST --> DB
+  W --> REP[Dashboard_Report_UI]
 ```
 
-<br>
+- DB는 Supabase. 로컬 DB 불필요.
+- LLM은 DB 스키마를 근거로 한 JSON만 사용.
+- 보고서는 화면 표시만. PDF 비활성.
 
-## 기술 스택
+---
 
-- UI: Streamlit
-- API: FastAPI
-- Orchestration: LangGraph
-- LLM: Gemini 2.5 Flash (파인튜닝 없음)
-- DB: PostgreSQL (Managed: Neon/Supabase 권장)
-- 분석: pandas, scikit-learn(경량 규칙/스코어링)
-- 마이그레이션: Alembic
+## 2) 현재 폴더 구조
 
-<br>
-
-## 폴더 구조
-
-```graphql
-ai-review-sales-advisor/
-├─ app/
-│  ├─ main.py                 # FastAPI 엔트리 (헬스체크, 챗, 보고서 API)
-│  ├─ deps.py                 # DI, DB 세션, 설정
-│  ├─ routers/
-│  │  ├─ chat.py              # /api/chat (LangGraph 실행)
-│  │  ├─ report.py            # 보고서 생성/조회/내보내기
-│  │  └─ merchant.py          # 매장 조회, 매핑
-│  └─ services/
-│     ├─ graph.py             # LangGraph 그래프 정의(노드/엣지)
-│     ├─ analyzer.py          # 시계열/격차/z-score/룰 평가
-│     ├─ recommender.py       # 액션 추천 룰셋 적용
-│     ├─ llm.py               # Gemini 호출 래퍼
-│     └─ exporter.py          # PDF/CSV 생성
-├─ etl/
-│  ├─ reviews_ingest.py       # 리뷰 수집/정규화/감정·키워드
-│  └─ card_ingest.py          # 카드사 CSV→DB upsert
-├─ db/
-│  ├─ models.py               # SQLAlchemy 모델
-│  ├─ schema.sql              # 초기 DDL (뷰/MV 포함)
-│  └─ migrations/             # Alembic 리비전
-├─ ui/
-│  ├─ Dashboard.py            # Streamlit 대시보드
-│  └─ Chat.py                 # Streamlit 챗 UI
-├─ configs/
-│  ├─ rules.json              # 액션 추천 룰셋
-│  └─ aspects.json            # 아스펙트 사전(맛/양/가격/서비스/포장/속도/위생)
-├─ tests/
-│  ├─ test_analyzer.py
-│  └─ test_routers.py
-├─ .env.example
-├─ requirements.txt
-├─ README.md
-└─ run_dev.sh                 # 개발용 실행 스크립트(선택)
+```text
+app/
+├─ repo/
+│  ├─ compare_repo.py          # 경쟁점·상권 평균 쿼리
+│  └─ metrics_repo.py          # 매출·방문·재방문 지표 쿼리
+├─ services/
+│  ├─ card_items_service.py    # KPI 카드·차트 데이터 조립
+│  └─ report_service.py        # LLM 보고서용 JSON 빌드
+├─ chat_core.py                # 코어 조립기(환경/DB/LLM 연결)
+├─ deps.py                     # DB 세션 관리
+└─ llm_client.py               # Gemini 호출 래퍼
+configs/
+├─ aspects.json                # 아스펙트 사전
+└─ rules.json                  # 프롬프트 규칙
+db/
+├─ migrations/
+└─ seed/
+   ├─ ddl_001_create_raw_tables.sql
+   └─ ddl_002_notes_views_indexes.sql
+tests/
+├─ test_analyzer.py
+├─ test_db.py
+└─ test_routers.py
+ui/
+├─ components/
+│  └─ cards.py                 # 공통 카드 컴포넌트
+├─ chat_view.py                # 챗 화면
+├─ Dashboard.py                # 대시보드 화면
+└─ marketing_report.py         # 보고서 화면(LLM 결과 렌더)
 ```
 
-<br>
+---
 
-## 환경 변수(.env)
+## 3) 챗봇 워크플로우
 
-```env
-ENV=dev
-LOG_LEVEL=INFO
-DATABASE_URL=postgresql+psycopg://user:pass@host:5432/dbname
-GEMINI_API_KEY=your_api_key
-```
-
-<br>
-
-## 초기 세팅
-
-```bash
-# Python 3.11 권장
-python -m pip install -U pip setuptools wheel
-pip install -r requirements.txt
-
-# DB 마이그레이션(Alembic)
-alembic init db/migrations
-# (env.py 에 DATABASE_URL 연결 후)
-alembic revision -m "init schema"
-alembic upgrade head
-# 또는 db/schema.sql을 한 번에 실행
-```
-
-<br>
-
-## 실행
-
-### API 서버
-
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-### Streamlit
-
-```bash
-streamlit run ui/Dashboard.py
-# 또는
-streamlit run ui/Chat.py
-```
-
-<br>
-
-## LangGraph 워크플로우 개요
-
-- **노드**: Guardrail → IntentRouter → ParamResolver → MemoryLoader →
-  DataPlanner → DBFetcher → Analyzer → ActionRecommender → LLMFormatter →
-  [Reporter] → [Exporter] → MemorySummarizer → Responder
-- **메모리**: rolling 8–12턴 + summary 1개 + facts 캐시(DB 테이블)
-- **벡터DB**: 기본 미사용. 필요 시 pgvector 옵션 투입.
-
-Mermaid(세부):
+### 3.1 시퀀스(화면 → DB → LLM → 화면)
 
 ```mermaid
-flowchart TD
-  A[Guardrail] --> B{IntentRouter}
-  B --> C[ParamResolver]
-  C --> D[MemoryLoader]
-  D --> E[DataPlanner]
-  E --> F[DBFetcher]
-  F --> G[Analyzer]
-  G --> H[ActionRecommender]
-  H --> I[LLMFormatter]
-  I --> J{Report?}
-  J -->|Yes| K[Reporter]
-  I --> L{Export?}
-  L -->|Yes| M[Exporter]
-  I --> N{Summarize?}
-  N -->|Yes| O[MemorySummarizer]
-  I --> P[Responder]
-  K --> P
-  M --> P
-  O --> P
+sequenceDiagram
+  participant User
+  participant UI as ui/chat_view.py
+  participant SVC as services/report_service.py
+  participant REPO as repo/*_repo.py
+  participant DB as Postgres
+  participant LLM as app/llm_client.py
+
+  User->>UI: 상권/업종/기간 선택, 질문 입력
+  UI->>SVC: 질의 컨텍스트 요청
+  SVC->>REPO: KPI·세그먼트·경쟁점 fetch
+  REPO->>DB: SQL 실행
+  DB-->>REPO: 결과(rows)
+  REPO-->>SVC: 정제 데이터(dict)
+  SVC->>LLM: {schema_hint, metrics_json, rules.json}
+  LLM-->>SVC: 보고서 초안(JSON 포맷 고정)
+  SVC-->>UI: 요약문·액션 리스트
+  UI-->>User: 카드/모달 렌더
 ```
 
-<br>
+### 3.2 프롬프트 구성 규칙
 
-## 데이터 모델(요약)
+- 입력: `metrics_json` + `schema_hint` + `configs/rules.json`.
+- 출력 스키마 고정:
 
-- `merchant`(기본정보)
-- `merchant_monthly_metrics`(매출/순위/배달비중 등)
-- `merchant_monthly_demographics`(성·연령·방문유형)
-- `daily_reviews`(raw_text, sentiment, aspects, keyphrases)
-- `reports`(report_type, period, payload JSONB)
-- `mv_review_daily`(감정·아스펙트 일별 집계 MV)
+  ```json
+  {
+    "trend_2sent": "...",
+    "segment_1sent": "...",
+    "comp_1sent": "...",
+    "actions": ["...", "...", "..."]
+  }
+  ```
 
-<br>
+- 금지: 외부 추정. 근거 없는 숫자.
+- 안전장치: 숫자 파싱 실패 시 `NULLIF(regexp_replace(...))::numeric`.
 
-## 개발 현황 체크리스트
+### 3.3 핵심 함수 위치
 
-### Sprint-0: 환경/기초
+- LLM 호출: `app/llm_client.py: generate_report(...)`
+- 컨텍스트 조립: `app/services/report_service.py: build_report_payload(...)`
+- 대화 핸들러: `ui/chat_view.py: render_chat(...)`
 
-- [ ] Python 3.11 venv 구성
-- [ ] DB 연결(DATABASE_URL)
-- [ ] Alembic 기본 설정 및 `init schema`
-- [ ] `.env` 적용 테스트
+---
 
-### Sprint-1: 데이터/분석
+## 4) 데이터·지표 로직
 
-- [ ] `daily_reviews` ETL v1(수동 CSV OK)
-- [ ] 감정 점수화/아스펙트 추출 v1
-- [ ] `merchant_monthly_*` 적재
-- [ ] `mv_review_daily` 생성 및 검증
+- 원천: 성동구 카페 가맹점 개요·월별 이용·월별 고객.
+- KPI: 매출, 방문, 재방문율, 객단가, 요일·시간대.
+- 비교: 전주/전월, 업종(카페) 평균, 상권(성수/뚝섬).
+- 예시 쿼리:
 
-### Sprint-2: API/그래프
+  ```sql
+  -- 숫자 안전 캐스팅 + 음수 클램프
+  SELECT
+    to_date(ta_ym,'YYYYMM') AS month,
+    NULLIF(regexp_replace(rc_m1_saa,'[^0-9.-]','','g'),'')::numeric AS sales,
+    NULLIF(regexp_replace(rc_m1_to_ue_ct,'[^0-9.-]','','g'),'')::numeric AS visits,
+    GREATEST(0, NULLIF(regexp_replace(revisit_rate,'[^0-9.-]','','g'),'')::numeric) AS revisit_rate
+  FROM stg_merchant_monthly_usage
+  WHERE encoded_mct = :m
+  ORDER BY 1;
+  ```
 
-- [ ] LangGraph 그래프/노드 스켈레톤
-- [ ] `/api/chat` 라우터 연결
-- [ ] Analyzer/ActionRecommender v1
-- [ ] Reporter JSON 스냅샷 저장
+---
 
-### Sprint-3: UI/배포
+## 5) UI 구성
 
-- [ ] Streamlit 대시보드 카드(리뷰/경고)
-- [ ] 챗 UI 스트리밍 응답
-- [ ] PDF/CSV 내보내기
-- [ ] Managed Postgres(Neon/Supabase) 연결
+- 상단: 상권·업종 토글, KPI 카드 3종(가로 정렬).
+- 중단: 월/주 추이, 요일·시간대 히트맵.
+- 하단: 경쟁점 비교, 카드뉴스, LLM 보고서 카드.
+- 제외: 업종 백분위, 업종대비 건수지수, 배달 비중.
+- 스타일: 동일 높이 카드, 작은 폰트, 다크 모드.
 
-### QA/데모
+---
 
-- [ ] 시나리오 3종 테스트(“오늘 리뷰 요약”, “월간 보고서”, “PDF 내보내”)
-- [ ] 오류/결측 대체 응답 점검
-- [ ] 데모 데이터 리셋 스크립트
+## 6) 실행
 
-<br>
+```bash
+py -3.12 -m venv .venv
+# Windows: .\.venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run ui/Dashboard.py
+```
 
-## 커밋 가이드
+필수 환경변수:
+`DATABASE_URL`, `GEMINI_API_KEY`,
+`DEMO_MCT_SS_CAFE`, `DEMO_MCT_TTUK_CAFE`, `DEMO_MCT_SS_ISAKAYA`, `DEMO_MCT_TTUK_ISAKAYA`.
 
-- 태그 + 요약: (미정)
-- 범주: (미정)
+---
 
-<br>
+## 7) 데모 시나리오
 
-## 라이선스
+- 상권×업종 4케이스 고정. ENCODED_MCT로 매핑.
+- 선택 즉시 해당 MCT의 월별 KPI·세그·경쟁 평균 로드.
+- 보고서는 화면 카드에만 표시.
 
-프로토타입. 내부 검토 후 결정.
+---
 
-<br>
+## 8) 테스트 포인트
 
-## 참고
+- `tests/test_db.py`: 연결·스키마 유효성.
+- `tests/test_analyzer.py`: 숫자 파싱·음수 클램프.
+- `tests/test_routers.py`: 보고서 출력 스키마 검증.
 
-- 무료 DB 권장: Neon(1순위) / Supabase(2순위).
-- VS Code 기본 인터프리터: Python 3.11 고정.
+---
+
+## 9) 향후 계획
+
+| 영역            | 내용                                 | 목적   |
+| --------------- | ------------------------------------ | ------ |
+| 데이터 자동화   | ETL 스케줄러, 중복 제거, 실패 재시도 | 최신성 |
+| 리뷰 파이프라인 | 정규화·중복 제거·언어 감지·아스펙트  | 품질   |
+| LLM 비용 최적화 | 캐시, 샘플링 축소, 요약 저장         | 비용   |
+| 추천            | 업종 벤치마크 기반 액션              | 자동화 |
+| LangGraph       | DB→요약→액션 체인 명시화             | 재현성 |
+| 권한            | RLS·가맹점 단위 접근                 | 보안   |
+| 실험            | A/B 카드 레이아웃·리텐션 모듈        | 성과   |
+
+---
+
+---
+
+## 11) 참고
+
+- 데이터 출처: 신한카드 요식업종 성동구.
+- 분석 초점: 카페(성수·뚝섬) 중심.
