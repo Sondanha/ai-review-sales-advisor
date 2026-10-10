@@ -1,6 +1,6 @@
 # AI Review & Sales Advisor
 
-신한카드 데이터 기반 카페 매출·리뷰 인사이트.
+신한카드 데이터 기반 매출·리뷰 인사이트.
 Streamlit 단일 앱 + Supabase Postgres + Gemini 2.5 Flash.
 
 ---
